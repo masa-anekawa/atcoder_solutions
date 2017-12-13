@@ -1,0 +1,4 @@
+# ignore all except source file
+/*/*
+!*.cpp
+/*/..TEMPLATE.cpp
