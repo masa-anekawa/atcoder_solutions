@@ -3,14 +3,14 @@
 
 const int INF  = 1e9;
 const long long INFLL = 1e18;
-const int NMAX = 52;
+const int NMAX = 100005;
 const int MMAX = 100005;
 const int KMAX = 1005;
 const int MOD  = 1e9 + 7;
 using namespace std;
 
 // comment to disable debug functions
-#define DEBUG
+// #define DEBUG
 
 // frequently used macros
 
@@ -66,10 +66,10 @@ void debug(const char* format, ...){
 // dump vector
 #ifdef DEBUG
 #define DUMPV(v, c) do{       \
-printf("%s: ", #v);         \
-for (int i = 0; i < (c); ++i) \
+  printf("%s: ", #v);         \
+  for (int i = 0; i < (c); ++i) \
   {                           \
-    cout << (v)[i] << " ";      \
+  cout << (v)[i] << " ";      \
   }                           \
   cout << endl;               \
 } while(0)
@@ -84,74 +84,101 @@ void Fill(A (&array)[N], const T &val){
 }
 
 // binary search
-ll BSearch(ll _begin, ll _end, bool (*f)(int)){
+ll BSearch(ll _begin, ll _end, bool (*f)(ll)){
   ll mid;
   while(_end - _begin > 1LL) {
-    mid = (_begin + _end) / 2LL;
-    if(f(mid)) {
-      debug("BSearch: f(%d) == true\n", mid);
-      _end = mid;
-    }
-    else
-    {
-      debug("BSearch: f(%d) == false\n", mid);
-      _begin = mid;
-    }
+  mid = _begin + (_end - _begin) / 2LL;
+  if(f(mid)) {
+    debug("BSearch: f(%d) == true\n", mid);
+    _end = mid;
+  }
+  else
+  {
+    debug("BSearch: f(%d) == false\n", mid);
+    _begin = mid;
+  }
   }
   return _end;
 }
 
-
-ll N;
-double A[NMAX], a[NMAX];
-int from[NMAX] = {},
-to[NMAX] = {},
-cnt;
-
-ll ans = {};
-bool check(){
-  for (int i = 1; i < N; ++i)
-  {
-    if (a[i] < a[i-1])
-    {
-      return false;
-    }
+struct node
+{
+  int next[2];
+  node(){
+    next[0] = next[1] = -1;
   }
-  return true;
+};
+ll N,M,K,L;
+node G[NMAX];
+node *root = &G[0];
+
+string S[NMAX];
+map<ll, bool> mp;
+vector<ll> ranks; // ranks of each tree of the forest
+bool ans = {}; // true ans means Alice losing
+vec lens; // vector of lengths of S
+int lensSum[NMAX] = {};
+
+void dfs(int nodeID, node &nd, int depth){
+  assert((ll)nd.next[0] * nd.next[1] != 0);
+  assert(nd.next[0] < NMAX);
+  assert(nd.next[1] < NMAX);
+  debug("dfs(%d, (%d, %d), %d) called\n",
+    nodeID, nd.next[0], nd.next[1], depth);
+
+  if((ll)nd.next[0] * nd.next[1] < 0){
+    ranks.push_back(L - depth);
+  }
+  if(nd.next[0] > 0) dfs(nd.next[0], G[nd.next[0]], depth + 1);
+  if(nd.next[1] > 0) dfs(nd.next[1], G[nd.next[1]], depth + 1);
 }
-void next(){
-  ++to[0];
-  for (int i = 0; i < cnt && to[i] >= N; ++i)
-  {
-    to[i] = 0;
-    ++to[i+1];
-  }
-  if(to[cnt] == 0) return;
-
-  to[cnt] = 0;
-  ++from[0];
-  for (int i = 0; i < cnt && from[i] >= N; ++i)
-  {
-    from[i] = 0;
-    ++from[i+1];
-  }
+ll calcGrundy(ll rank){
+  assert(rank > 0);
+  return rank & -rank;
+  // for (int i = 0; ; ++i)
+  //   if((1 << i) & rank) return 1LL << i;
 }
 void solve(){
   // main algorithm
-  for (cnt = 0; cnt <= 2 * N; ++cnt)
+  // make_tree
+  debug("lens: ");
+  for (int i = 0; i < N; ++i)
   {
-    // DUMP(cnt);
-    while(from[cnt] == 0) {
-      memcpy(a, A, sizeof(double) * N);
-      for (int k = 0; k < cnt; ++k)
-        a[to[k]] += a[from[k]];
-      // for(int i = 0; i < N; ++i) printf("%d ", (int)a[i]);
-      // printf("\n");
-      if(check()) return;
-      next();
-    }
-    from[cnt] = 0;
+    lensSum[i+1] = lensSum[i] + lens[i];
+    debug("%d ", lensSum[i+1]);
   }
+  debug("\n");
+  int sumLength = lensSum[N];
+  int nodeID = 1;
+  for (int s_i = 0; s_i < N; ++s_i)
+  {
+    node *nd = root;
+    for (; nodeID <= lensSum[s_i + 1]; ++nodeID)
+    {
+      int i = nodeID - 1 - lensSum[s_i];
+      int &next = nd->next[(int)(S[s_i][i] - '0')];
+      if(next == -1){
+        next = nodeID;
+      }
+      nd = &G[next];
+    }
+  }
+  assert(nodeID == lensSum[N] + 1);
+  // calc forest_leaves
+  dfs(0, *root, 0);
+  // calc nim
+
+  debug("ranks:\n");
+  for(auto&& d : ranks) {
+    debug("%d ", d);
+  }
+  debug("\n");
+
+  ll grundy = 0LL;
+  for(auto&& d : ranks) {
+    grundy ^= calcGrundy(d);
+  }
+  ans = grundy == 0LL;
 }
 void debug(){
   // output debug information
@@ -159,21 +186,18 @@ void debug(){
 }
 void answer(){
   // output answer
-  printf("%d\n", cnt);
-  for (int k = 0; k < cnt; ++k)
-  {
-    printf("%d %d\n", from[k] + 1, to[k] + 1);
-  }
+  cout << (ans ? "Bob" : "Alice") << endl;
 }
 int main(int argc, char const *argv[])
 {
   // operate inputs
 
   // Fill(dp, -1);
-  cin >> N;
+  cin >> N >> L;
   for (int i = 0; i < N; ++i)
   {
-    scanf("%lf", &A[i]);
+    cin >> S[i];
+    lens.push_back(S[i].size());
   }
   solve();
   #ifdef DEBUG
